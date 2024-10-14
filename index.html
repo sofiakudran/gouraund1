@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gouraud Shading with Color Picker</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        canvas {
+            display: block;
+            margin: auto;
+        }
+        .color-picker {
+            display: flex;
+            justify-content: center;
+            margin: 20px;
+        }
+        .color-picker div {
+            margin: 0 15px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Поля вибору кольорів -->
+    <div class="color-picker">
+        <div>
+            <label for="color1">Вершина 1:</label>
+            <input type="color" id="color1" value="#ff0000">
+        </div>
+        <div>
+            <label for="color2">Вершина 2:</label>
+            <input type="color" id="color2" value="#00ff00">
+        </div>
+        <div>
+            <label for="color3">Вершина 3:</label>
+            <input type="color" id="color3" value="#0000ff">
+        </div>
+    </div>
+
+    <!-- Canvas для малювання -->
+    <canvas id="gouraudCanvas" width="400" height="400"></canvas>
+
+    <script>
+        // Функція для перетворення HEX-кольору в масив RGB
+        function hexToRgb(hex) {
+            const bigint = parseInt(hex.slice(1), 16);
+            return [bigint >> 16 & 255, bigint >> 8 & 255, bigint & 255];
+        }
+
+        // Функція для інтерполяції кольору між двома точками
+        function interpolateColor(color1, color2, factor) {
+            const result = color1.slice();
+            for (let i = 0; i < 3; i++) {
+                result[i] = Math.round(color1[i] + factor * (color2[i] - color1[i]));
+            }
+            return result;
+        }
+
+        // Переводимо RGB масив у строку для використання в контексті Canvas
+        function rgbToString(color) {
+            return `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
+        }
+
+        // Вершини трикутника
+        const vertices = [
+            { x: 200, y: 50, color: [255, 0, 0] },    // Червоний
+            { x: 50, y: 350, color: [0, 255, 0] },    // Зелений
+            { x: 350, y: 350, color: [0, 0, 255] }    // Синій
+        ];
+
+        // Налаштування Canvas
+        const canvas = document.getElementById('gouraudCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Функція для малювання трикутника з інтерпольованими кольорами (метод Гуро)
+        function drawGouraudShading(vertices) {
+            const [v1, v2, v3] = vertices;
+            
+            // Малюємо рядками по Y-координатах
+            const minY = Math.min(v1.y, v2.y, v3.y);
+            const maxY = Math.max(v1.y, v2.y, v3.y);
+
+            for (let y = minY; y <= maxY; y++) {
+                // Визначаємо межі трикутника на поточній висоті
+                const pointsOnLine = [];
+
+                // Інтерполюємо позиції та кольори по краях трикутника
+                if (y >= v1.y && y <= v2.y) {
+                    const factor = (y - v1.y) / (v2.y - v1.y);
+                    pointsOnLine.push({
+                        x: Math.round(v1.x + factor * (v2.x - v1.x)),
+                        color: interpolateColor(v1.color, v2.color, factor)
+                    });
+                }
+
+                if (y >= v1.y && y <= v3.y) {
+                    const factor = (y - v1.y) / (v3.y - v1.y);
+                    pointsOnLine.push({
+                        x: Math.round(v1.x + factor * (v3.x - v1.x)),
+                        color: interpolateColor(v1.color, v3.color, factor)
+                    });
+                }
+
+                if (y >= v2.y && y <= v3.y) {
+                    const factor = (y - v2.y) / (v3.y - v2.y);
+                    pointsOnLine.push({
+                        x: Math.round(v2.x + factor * (v3.x - v2.x)),
+                        color: interpolateColor(v2.color, v3.color, factor)
+                    });
+                }
+
+                if (pointsOnLine.length === 2) {
+                    // Малюємо лінію між двома точками на поточному рядку
+                    const [left, right] = pointsOnLine[0].x < pointsOnLine[1].x ? pointsOnLine : pointsOnLine.reverse();
+
+                    for (let x = left.x; x <= right.x; x++) {
+                        const factor = (x - left.x) / (right.x - left.x);
+                        const color = interpolateColor(left.color, right.color, factor);
+                        ctx.fillStyle = rgbToString(color);
+                        ctx.fillRect(x, y, 1, 1);
+                    }
+                }
+            }
+        }
+
+        // Очищуємо холст і малюємо трикутник з обраними кольорами
+        function updateCanvas() {
+            const color1 = hexToRgb(document.getElementById('color1').value);
+            const color2 = hexToRgb(document.getElementById('color2').value);
+            const color3 = hexToRgb(document.getElementById('color3').value);
+
+            vertices[0].color = color1;
+            vertices[1].color = color2;
+            vertices[2].color = color3;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawGouraudShading(vertices);
+        }
+
+        // Додаємо обробники подій для вибору кольорів
+        document.getElementById('color1').addEventListener('input', updateCanvas);
+        document.getElementById('color2').addEventListener('input', updateCanvas);
+        document.getElementById('color3').addEventListener('input', updateCanvas);
+
+        // Початковий виклик для відображення трикутника
+        updateCanvas();
+    </script>
+</body>
+</html>
